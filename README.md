@@ -85,17 +85,17 @@ Resources:
   - running app as a docker container
   - running mongo as a docker container
   - persistence disk space where mongo can write its data
-  - load balancer to receive traffic from internet (outside the cluster)
-  - ability fro app to talk to mongo 
-- **In Kubernetes language what we need is ** 
+  - load balancer to receive traffic from internet (from outside the cluster)
+  - ability for app to talk to mongo 
+- **In Kubernetes language what we need is** 
   - **Deployment**
-    - todo-app : run todo app container s
-    - mongo-db : run mongo containers
+    - **todo-app** : run todo app container 
+    - **mongo-db** : run mongo containers
   - **Service**
-    - Load balancer : routing external traffic to our app container
-    - mongo-service: to route internal traffic to mongo containers
+    -  **todo-app-service** : routing external traffic to our app container
+    - **mongo-service**: to route internal traffic to mongo containers
   - **Persistence Volume Claim**
-    - Persistence disk space where mongo can write its data
+    - **mongo-disk:** Persistence disk space where mongo can write its data
 
 
 
@@ -115,14 +115,13 @@ Resources:
 
 - When talking to Kubernetes, we alwasy define what API language are we talking in
 - Managed Kubernetes like Azure Kubernetes will usually not have the latest API's
-
-
+- When referring to docs, make sure you are looking at correct api versions
 
 
 
 ### Declaring our Kubernetes configuration
 
-- We can declare all configuration in a single file, but we will use two files. One for mongo related requirements and other for app related.
+- We can declare all configuration in a single file, but we will use two files. One for mongo and other for app.
 
 - We will put both our yaml files in a single folder `k8` and run `kubectl apply ` on this folder
 
@@ -159,7 +158,7 @@ Resources:
             ports:
               - containerPort: 80           # Port that our app listens to
             env:
-              - name: MONGO_URL
+              - name: TODO_APP_MongoSettings__ConnectionString
                 value: mongodb://mongo-service:27017/dev # mongo-service that exposes mongo db to us
             imagePullPolicy: Always
   ```
@@ -192,11 +191,31 @@ Resources:
         targetPort: 80  # The port our container(in pods) listens to
     type: LoadBalancer
   ---
-  
   # This part creates a pod that runs our docker image
   apiVersion: apps/v1
   kind: Deployment
-  #......
+  metadata:
+    name: todo-app
+  spec:
+    # we only want one replica of our container for now
+    replicas: 1  
+    selector:
+      matchLabels:
+        app: todo-app
+    template:
+      metadata:
+        labels:
+          app: todo-app
+      spec:
+        containers:
+          - name: todo-app
+            image: nishants/todo_app:v0.1   # Our docker image on docker hub
+            ports:
+              - containerPort: 80           # Port that our app listens to
+            env:
+              - name: TODO_APP_MongoSettings__ConnectionString
+                value: mongodb://mongo-service:27017/dev # mongo-service that exposes mongo db to us
+            imagePullPolicy: Always
   ```
 
   
@@ -204,8 +223,10 @@ Resources:
 - Now run the apply command again, 
 
   ```bash
+  # Apply all yaml config from k8 folder
   kubectl apply -f k8
   
+  # Get the url for todo-app-service
   minikube service todo-app-service 
   # |-----------|------------------|-------------|---------------------------|
   # | NAMESPACE |       NAME       | TARGET PORT |            URL            |
@@ -218,9 +239,45 @@ Resources:
 
 - Open the url in browser, we will see our app 
 
-  ![image-20200715155401215](/Users/dawn/Documents/projects/dotnet-school/dotnet-k8/docs/images/disabled-app.png)
+  ![image-20200715155401215](./docs/images/disabled-app.png)
 
 - **Out app is disbaled, as it has no connection with database.** 
+
+- To make sure, lets look into the logs of the pod : 
+
+  ```bash
+  kubectl get pods
+  # NAME                        READY   STATUS    RESTARTS   AGE
+  # todo-app-7cf78bcc8d-njcmn   1/1     Running   0          48m
+  
+  kubectl logs todo-app-7cf78bcc8d-njcmn
+  
+  # An unhandled exception has occurred while executing the request.
+  # System.TimeoutException: A timeout occured after 30000ms selecting a server using CompositeServerSelector{ Selectors = MongoDB.Driver.MongoClient+AreSessionsSupportedServerSelector, LatencyLimitingServerSelector{ AllowedLatencyRange = 00:00:00.0150000 } }. Client view of cluster state is { ClusterId : "1", ConnectionMode : "Automatic", Type : "Unknown", State : "Disconnected", Servers : [{ ServerId: "{ ClusterId : 1, EndPoint : "Unspecified/mongo-service:27017" }", EndPoint: "Unspecified/mongo-service:27017", State: "Disconnected", Type: "Unknown", HeartbeatException: "MongoDB.Driver.MongoConnectionException: An exception occurred while opening a connection to the server.
+  ```
+
+  - So the app had error trying to connect with mongo db as expected
+
+
+
+### Setup Mongo DB in our cluster
+
+- Create a peristence volume that mongo db can use to save data : 
+
+  ```yaml
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: mongo-disk
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 256Mi
+  ```
+
+  
 
 
 
@@ -230,3 +287,41 @@ Create a Deployment Resource with
 
 - Resource - Deployment, PersistentVolumeClaim, Service, 
 
+
+
+# Questoins
+
+- how do we scale disk ?
+- how do we scale mong ? (CPU ?)
+- how do we scale app ?
+- Can we scale app based on some data in mongo ?
+
+
+
+###Some useful commands 
+
+```bash
+## Operatoins ##########
+kubectl apply -f dir-name # apply configurations from a directory
+kubectl scale --replicas=2 deployment/knote # Scale deployed containers
+
+## Minicube ##########
+minikube start
+minikube stop
+minikube logs
+minikube status
+minikube service <name>    # get service/open url for load balancer service
+
+## Pods ##########
+kubectl get pods            # show all pods
+kubectl get pods --watch    # watch all pods
+kubectl describe pod <name> # show status of a pod
+kubectl logs <pod-name>     # view stdout of a pod
+kubectl get pods -l app=todo-app --watch
+
+## Docs ##########
+kubectl explain <resource> 		# docs of a resource
+kubectl explain deployment 		# docs of deployment resource
+kubectl explain <resource>.<path>.<path> # describe yaml field 
+kubectl explain deployment.spec.template.spec.containers # describe containers field of deployment
+```
