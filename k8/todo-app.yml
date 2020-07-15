@@ -35,6 +35,6 @@ spec:
           ports:
             - containerPort: 80           # Port that our app listens to
           env:
-            - name: MONGO_URL
+            - name: TODO_APP_MongoSettings__ConnectionString
               value: mongodb://mongo-service:27017/dev # mongo-service that exposes mongo db to us
           imagePullPolicy: Always
