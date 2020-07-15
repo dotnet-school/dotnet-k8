@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-disk      # We will use this name for attaching with mongo deployment
+spec:
+  accessModes:
+    - ReadWriteMany     # Volume can be read/write by many nodes
+  resources:
+    requests:
+      storage: 512Mi    # 256 MB of storage for this disk
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service   # Name of service (we use this as domain in todo-app config)
+spec:
+  selector:
+    app: mongo-db       # Exposes mongo-db as service
+  ports:
+    - port: 27017
+      targetPort: 27017 # Map service port to container port
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-db     # Name of deployment, we wil refer this in service
+spec:
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:3.6.18       # Image name for mongo-db container
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: storage        # set /data/db to mounted storage
+              mountPath: /data/db
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: mongo-disk  # Mount mongo-disk PVC as storage

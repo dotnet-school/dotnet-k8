@@ -268,30 +268,136 @@ Resources:
   apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
-    name: mongo-disk
+    name: mongo-disk      # We will use this name for attaching with mongo deployment
   spec:
     accessModes:
-      - ReadWriteOnce
+      - ReadWriteMany     # Volume can be read/write by mulitple nodes 
     resources:
       requests:
-        storage: 256Mi
+        storage: 512Mi    # 256 MB of storage for this disk
+  ```
+
+- Now lets create a database deployment for mongo db
+
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: mongo-db     # Name of deployment, we wil refer this in service
+  spec:
+    selector:
+      matchLabels:
+        app: mongo
+    template:
+      metadata:
+        labels:
+          app: mongo
+      spec:
+        containers:
+          - name: mongo
+            image: mongo:3.6.18       # Image name for mongo-db container
+            ports:
+              - containerPort: 27017
+            volumeMounts:
+              - name: storage        # set /data/db to mounted storage
+                mountPath: /data/db
+        volumes:
+          - name: storage
+            persistentVolumeClaim:
+              claimName: mongo-disk  # Mount mongo-disk PVC as storage
+  ```
+
+- Now, our mongo container is running with a persistence storage. 
+
+- But to allow our app to talk to db, we need to create a service for the mongo container : 
+
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: mongo-service   # Name of service (we use this as domain in todo-app config)
+  spec:
+    selector:
+      app: mongo-db       # Exposes mongo-db as service
+    ports:
+      - port: 27017
+        targetPort: 27017 # Map service port to container port
+  ```
+
+- So final mongo-db.yml is 
+
+  ```yaml
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: mongo-disk      # We will use this name for attaching with mongo deployment
+  spec:
+    accessModes:
+      - ReadWriteMany     # Volume can be read/write by many nodes
+    resources:
+      requests:
+        storage: 512Mi    # 256 MB of storage for this disk
+  ---
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: mongo-service   # Name of service (we use this as domain in todo-app config)
+  spec:
+    selector:
+      app: mongo-db       # Exposes mongo-db as service
+    ports:
+      - port: 27017
+        targetPort: 27017 # Map service port to container port
+  ---
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: mongo-db     # Name of deployment, we wil refer this in service
+  spec:
+    selector:
+      matchLabels:
+        app: mongo
+    template:
+      metadata:
+        labels:
+          app: mongo
+      spec:
+        containers:
+          - name: mongo
+            image: mongo:3.6.18       # Image name for mongo-db container
+            ports:
+              - containerPort: 27017
+            volumeMounts:
+              - name: storage        # set /data/db to mounted storage
+                mountPath: /data/db
+        volumes:
+          - name: storage
+            persistentVolumeClaim:
+              claimName: mongo-disk  # Mount mongo-disk PVC as storage
+  ```
+
+  - no apply settings : 
+
+    ```
+    kubectl apply -f k8
+    ```
+
+    
+
+- Run app : 
+
+  ```
+  
   ```
 
   
 
 
 
-
-
-Create a Deployment Resource with 
-
-- Resource - Deployment, PersistentVolumeClaim, Service, 
-
-
-
 # Questoins
 
-- how do we scale disk ?
+- how do we auto-scale disk ?
+  - still in beta : https://kubernetes.io/blog/2018/07/12/resizing-persistent-volumes-using-kubernetes/
 - how do we scale mong ? (CPU ?)
 - how do we scale app ?
 - Can we scale app based on some data in mongo ?
@@ -324,4 +430,15 @@ kubectl explain <resource> 		# docs of a resource
 kubectl explain deployment 		# docs of deployment resource
 kubectl explain <resource>.<path>.<path> # describe yaml field 
 kubectl explain deployment.spec.template.spec.containers # describe containers field of deployment
+
+
 ```
+
+
+
+### Quiz
+
+- what happens if I rename my resource in yml declaration ? New resource is ofcourse created, but does it delete old one ?
+  - <span style="color: rgba(0,0,0,0.1)">No, we will have to manually delete it</span>
+
+- 
