@@ -378,23 +378,21 @@ Resources:
 
   - no apply settings : 
 
-    ```
+    ```bash
     kubectl apply -f k8
     ```
 
-    
+- Now check app in browser : 
 
-- Run app : 
-
-  ```
-  
+  ```bash
+  minikube service todo-app-service
   ```
 
   
 
+![todo-list](./docs/images/todo-list.gif)
 
-
-# Questoins
+# Questions
 
 - how do we auto-scale disk ?
   - still in beta : https://kubernetes.io/blog/2018/07/12/resizing-persistent-volumes-using-kubernetes/

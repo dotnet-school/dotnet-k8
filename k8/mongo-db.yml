@@ -7,7 +7,7 @@ spec:
     - ReadWriteMany     # Volume can be read/write by many nodes
   resources:
     requests:
-      storage: 512Mi    # 256 MB of storage for this disk
+      storage: 256Mi    # 256 MB of storage for this disk
 ---
 apiVersion: v1
 kind: Service
