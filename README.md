@@ -137,12 +137,14 @@ Resources:
 - Create a deployment declaration for todo app `todo-app.yml`
 
   ```yaml
+  # This part creates a pod that runs our docker image
   apiVersion: apps/v1
   kind: Deployment
   metadata:
     name: todo-app
   spec:
-    replicas: 1
+    # we only want one replica of our container for now
+    replicas: 1  
     selector:
       matchLabels:
         app: todo-app
@@ -153,20 +155,76 @@ Resources:
       spec:
         containers:
           - name: todo-app
-            image: nishants/todo_app
+            image: nishants/todo_app:v0.1   # Our docker image on docker hub
             ports:
-              - containerPort: 80
+              - containerPort: 80           # Port that our app listens to
             env:
               - name: MONGO_URL
-                value: mongodb://mongo-service:27017/dev # we haven't created mongo service yet.
+                value: mongodb://mongo-service:27017/dev # mongo-service that exposes mongo db to us
             imagePullPolicy: Always
   ```
 
-- 
+- Apply kubernetes configuration to our local cluster : 
 
-- Declaration for app : 
+  ```bash
+  # apply all yaml config from k8 folder
+  kubectl apply -f k8
+  ```
 
-- 
+- This will create a pod that runs our docker container. But we cannot access this from outside the cluster.
+
+
+
+- To access the app, we will create the load balancer resource in same file as : 
+
+  ```yaml
+  # This part creates a load balancer pod that receives traffic from
+  # internet and load-balances to our pods
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: todo-app-service
+  spec:
+    selector:
+      app: todo-app     # This makes load balancer point to todo-app deployment
+    ports:
+      - port: 80        
+        targetPort: 80  # The port our container(in pods) listens to
+    type: LoadBalancer
+  ---
+  
+  # This part creates a pod that runs our docker image
+  apiVersion: apps/v1
+  kind: Deployment
+  #......
+  ```
+
+  
+
+- Now run the apply command again, 
+
+  ```bash
+  kubectl apply -f k8
+  
+  minikube service todo-app-service 
+  # |-----------|------------------|-------------|---------------------------|
+  # | NAMESPACE |       NAME       | TARGET PORT |            URL            |
+  # |-----------|------------------|-------------|---------------------------|
+  # | default   | todo-app-service |          80 | http://192.168.64.5:31019 |
+  # |-----------|------------------|-------------|---------------------------|
+  ```
+
+  
+
+- Open the url in browser, we will see our app 
+
+  ![image-20200715155401215](/Users/dawn/Documents/projects/dotnet-school/dotnet-k8/docs/images/disabled-app.png)
+
+- **Out app is disbaled, as it has no connection with database.** 
+
+
+
+
 
 Create a Deployment Resource with 
 
