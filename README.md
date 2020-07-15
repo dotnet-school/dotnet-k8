@@ -10,6 +10,17 @@ Resources:
 
 - clone this repo  https://github.com/dotnet-school/dotnet-docker
 
+- push your docker image and make sure it is public (we will see how to handle private one later)
+
+  ```bash
+  # We will use this image with kubernetes
+  cd TodoApp
+  docker build -t nishants/todo_app:v0.1 .
+  docker push nishants/todo_app:v0.1
+  ```
+
+  
+
 - **Kubectl**
   
   - install kubectl: https://kubernetes.io/docs/tasks/tools/install-kubectl/
@@ -35,13 +46,14 @@ Resources:
   ```bash
   minikube start
   
-  # Using the hyperkit driver based on existing profile
+  # minikube v1.11.0 on Darwin 10.15.3
+  # Automatically selected the hyperkit driver
   # Starting control plane node minikube in cluster minikube
-  # Restarting existing hyperkit VM for "minikube" ...
+  # Creating hyperkit VM (CPUs=2, Memory=2200MB, Disk=20000MB) ...
   # Preparing Kubernetes v1.18.3 on Docker 19.03.8 ...
   # Verifying Kubernetes components...
   # Enabled addons: default-storageclass, storage-provisioner
-  # Done! kubectl is now configured to use "minikube
+  # Done! kubectl is now configured to use "minikube"
   ```
 
   - this may take a few minutes 
@@ -114,12 +126,43 @@ Resources:
 
 - We will put both our yaml files in a single folder `k8` and run `kubectl apply ` on this folder
 
-  ```
-  # Create k8 directory
-  
+  ```bash
+  # Create k8 directory and files
+  mkdir k8
+  cd k8
+  touch todo-app.yml
+  touch mongo-db.yml
   ```
 
-  
+- Create a deployment declaration for todo app `todo-app.yml`
+
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: todo-app
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: todo-app
+    template:
+      metadata:
+        labels:
+          app: todo-app
+      spec:
+        containers:
+          - name: todo-app
+            image: nishants/todo_app
+            ports:
+              - containerPort: 80
+            env:
+              - name: MONGO_URL
+                value: mongodb://mongo-service:27017/dev # we haven't created mongo service yet.
+            imagePullPolicy: Always
+  ```
+
+- 
 
 - Declaration for app : 
 
